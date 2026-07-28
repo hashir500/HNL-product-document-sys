@@ -1,11 +1,17 @@
 <?php
+session_start();
+
+if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
+    header('Location: login.php');
+    exit;
+}
+
 require_once __DIR__ . '/db.php';
 
 $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
 $domainName = $_SERVER['HTTP_HOST']; 
 $baseUrl = $protocol . $domainName . '/';
 
-// Update QR Code in DB if missing
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_qr') {
     $id = intval($_POST['id']);
     $qrUrl = $_POST['qr_url'];
@@ -20,7 +26,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
-// Live Search
 if (isset($_GET['q'])) {
     $q = trim($_GET['q']);
     $results = [];
@@ -45,7 +50,6 @@ if (isset($_GET['q'])) {
     exit;
 }
 
-// Fetch initial list
 $initialQuery = $conn->query("SELECT id, Doc_Product, Doc_Type, Doc_Description, Folder_Path, TextURL, Link, QR_Code FROM product_docs ORDER BY Doc_Product ASC");
 $medicines = [];
 while ($row = $initialQuery->fetch_assoc()) {
@@ -62,7 +66,6 @@ $firstMedicine = $hasData ? $medicines[0] : null;
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Highnoon | Product Documents Portal</title>
     
-    <!-- jsPDF Library for PDF QR Download -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <style>
@@ -79,8 +82,12 @@ $firstMedicine = $hasData ? $medicines[0] : null;
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: var(--font-main); background-color: var(--hn-bg); color: var(--hn-text-dark); line-height: 1.5; }
-        .header { background-color: var(--hn-orange); height: 85px; padding: 0 40px; display: flex; align-items: center; }
+        .header { background-color: var(--hn-orange); height: 85px; padding: 0 40px; display: flex; align-items: center; justify-content: space-between; }
         .header-logo { font-size: 37px; font-weight: 800; color: #ffffff; text-decoration: none; }
+        .user-nav { display: flex; align-items: center; gap: 15px; color: #ffffff; }
+        .user-info { font-size: 14px; font-weight: 500; }
+        .btn-logout { background: rgba(255, 255, 255, 0.2); color: #ffffff; padding: 6px 14px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; transition: background 0.2s ease; }
+        .btn-logout:hover { background: rgba(255, 255, 255, 0.35); }
         .main-container { max-width: 1400px; margin: 25px auto; padding: 0 20px; }
         .breadcrumb { font-size: 13px; color: var(--hn-text-muted); margin-bottom: 20px; }
         .breadcrumb span { color: var(--hn-orange); font-weight: 500; }
@@ -125,7 +132,6 @@ $firstMedicine = $hasData ? $medicines[0] : null;
         iframe { width: 100%; height: 100%; border: none; }
         .no-data-text { color: var(--hn-text-muted); font-size: 18px; font-weight: 600; }
 
-        
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -193,6 +199,10 @@ $firstMedicine = $hasData ? $medicines[0] : null;
 
     <header class="header">
         <a href="#" class="header-logo">Highnoon</a>
+        <div class="user-nav">
+            <span class="user-info"><?= htmlspecialchars($_SESSION['username'] ?? $_SESSION['useremail']) ?></span>
+            <a href="logout.php" class="btn-logout">Logout</a>
+        </div>
     </header>
 
     <div class="main-container">
@@ -255,7 +265,6 @@ $firstMedicine = $hasData ? $medicines[0] : null;
         </div>
     </div>
 
-    <!-- Download Options Modal -->
     <div class="modal-overlay" id="qr-modal" onclick="closeDownloadModal(event)">
         <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-title">Download QR Code</div>
@@ -340,7 +349,6 @@ $firstMedicine = $hasData ? $medicines[0] : null;
             qrPlaceholder.style.display = 'block';
         }
 
-        /* --- Modal Control Functions --- */
         function openDownloadModal() {
             if (!currentProduct || !qrImage.src) return;
             qrModal.style.display = 'flex';
@@ -350,13 +358,11 @@ $firstMedicine = $hasData ? $medicines[0] : null;
             qrModal.style.display = 'none';
         }
 
-        /* --- Convert & Download QR Code --- */
         function downloadQR(format) {
             if (!qrImage.src || !currentProduct) return;
 
             const cleanName = currentProduct.Doc_Product.replace(/[^a-z0-9]/gi, '_').toLowerCase();
             const fileName = `${cleanName}_qr.${format}`;
-
 
             const img = new Image();
             img.crossOrigin = 'Anonymous';
@@ -369,7 +375,6 @@ $firstMedicine = $hasData ? $medicines[0] : null;
                 const ctx = canvas.getContext('2d');
 
                 if (format === 'jpg') {
-                   
                     ctx.fillStyle = '#ffffff';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
                 }
