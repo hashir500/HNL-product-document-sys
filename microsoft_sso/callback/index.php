@@ -64,7 +64,8 @@ if (empty($user_email)) {
     die("Unable to retrieve email from Microsoft account.");
 }
 
-$stmt = $conn->prepare("SELECT id, username, useremail FROM users WHERE LOWER(useremail) = ?");
+// Fetch superuser status along with user details
+$stmt = $conn->prepare("SELECT id, username, useremail, superuser FROM users WHERE LOWER(useremail) = ?");
 $stmt->bind_param("s", $user_email);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -73,6 +74,7 @@ if ($row = $result->fetch_assoc()) {
     $_SESSION['user_id']   = $row['id'];
     $_SESSION['username']  = $row['username'];
     $_SESSION['useremail'] = $row['useremail'];
+    $_SESSION['superuser'] = (int)$row['superuser'];
     $_SESSION['logged_in'] = true;
 
     header("Location: ../../index.php");
